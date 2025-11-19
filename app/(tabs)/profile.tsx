@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/stores/authStore";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -142,7 +143,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState<"activities" | "achievements">(
     "activities"
   );
-
+  const user = useAuthStore((state) => state.user);
   if (!fontsLoaded) return null;
 
   return (
@@ -184,8 +185,10 @@ const Profile = () => {
           </View>
 
           <View style={styles.nameContainer}>
-            <Text style={styles.name}>{userData.name}</Text>
-            <Text style={styles.username}>{userData.username}</Text>
+            <Text style={styles.name}>
+              {user?.first_name} {user?.last_name}
+            </Text>
+            <Text style={styles.username}>{user?.username}</Text>
           </View>
 
           <Text style={styles.bio}>{userData.bio}</Text>

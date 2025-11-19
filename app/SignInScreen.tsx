@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthStore } from "@/stores/authStore";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -55,8 +55,8 @@ export function SignInScreen() {
     Inter_700Bold,
     Inter_800ExtraBold,
   });
-
-  const { signIn, signUp } = useAuth();
+  const signIn = useAuthStore((s) => s.signIn);
+  const signUp = useAuthStore((s) => s.signUp);
 
   // Form state
   const [email, setEmail] = useState("");
