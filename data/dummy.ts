@@ -100,3 +100,75 @@ export const feedData = [
         tags: ["Desert", "Advanced"],
     },
 ];
+
+export const gearListings = [
+    {
+        id: 1,
+        user: {
+            name: "Alex Johnson",
+            avatar:
+                "https://ui-avatars.com/api/?name=Alex+Johnson&background=2E8B57&color=fff&bold=true&size=128",
+            rating: 4.8,
+            exchangeCount: 23,
+        },
+        gear: {
+            name: "Coleman 4-Person Tent",
+            description:
+                "Barely used camping tent, perfect for family trips. Waterproof and easy to set up.",
+            image:
+                "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&q=80",
+            condition: "Like New",
+            category: "Tent",
+        },
+        location: "Denver, CO",
+        status: "public",
+        postedTime: "2 days ago",
+        isBookmarked: false,
+    },
+    {
+        id: 2,
+        user: {
+            name: "Sarah Martinez",
+            avatar:
+                "https://ui-avatars.com/api/?name=Sarah+Martinez&background=FFB347&color=fff&bold=true&size=128",
+            rating: 4.9,
+            exchangeCount: 34,
+        },
+        gear: {
+            name: "MSR Backpacking Stove",
+            description:
+                "Compact camping stove with fuel canister. Great condition, used only 3 times.",
+            image:
+                "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=800&q=80",
+            condition: "Excellent",
+            category: "Cooking",
+        },
+        location: "Portland, OR",
+        status: "public",
+        postedTime: "5 days ago",
+        isBookmarked: true,
+    },
+    {
+        id: 3,
+        user: {
+            name: "Mike Chen",
+            avatar:
+                "https://ui-avatars.com/api/?name=Mike+Chen&background=4F7942&color=fff&bold=true&size=128",
+            rating: 4.7,
+            exchangeCount: 18,
+        },
+        gear: {
+            name: "Sleeping Bag -15°C",
+            description:
+                "Heavy-duty winter sleeping bag. Perfect for cold weather camping. Clean and well-maintained.",
+            image:
+                "https://images.unsplash.com/photo-1520095972714-909e91b038e5?w=800&q=80",
+            condition: "Good",
+            category: "Sleeping",
+        },
+        location: "Seattle, WA",
+        status: "public",
+        postedTime: "1 week ago",
+        isBookmarked: false,
+    },
+];

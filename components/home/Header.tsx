@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
@@ -10,7 +11,6 @@ import {
   View,
 } from "react-native";
 
-// Camping color palette
 const colors = {
   primary: "#2D5016",
   primaryDark: "#1F3A0F",
@@ -29,6 +29,7 @@ const colors = {
 };
 
 export default function Header({ filters, activeFilter, setActiveFilter }) {
+  const user = useAuthStore((state) => state.user);
   return (
     <LinearGradient
       colors={[colors.primary, colors.primaryDark]}
@@ -39,7 +40,9 @@ export default function Header({ filters, activeFilter, setActiveFilter }) {
       <View style={styles.headerTop}>
         <View>
           <Text style={styles.headerTitle}>Campi</Text>
-          <Text style={styles.headerSubtitle}>Join camping adventures</Text>
+          <Text style={styles.headerSubtitle}>
+            Welcome back {user?.username}
+          </Text>
         </View>
         <TouchableOpacity style={styles.notificationButton}>
           <Ionicons name="notifications-outline" size={24} color="#fff" />
