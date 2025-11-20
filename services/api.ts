@@ -2,7 +2,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios, { AxiosError } from "axios";
 
-const API_URL = "https://c5aac5436534.ngrok-free.app"; // ✅ Removed leading space
+const API_URL = "https://17296019cb28.ngrok-free.app";
 
 const api = axios.create({
   baseURL: API_URL,

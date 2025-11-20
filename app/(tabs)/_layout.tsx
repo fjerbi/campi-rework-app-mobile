@@ -3,9 +3,11 @@ import React from "react";
 import { Platform } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+
+// Icons
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -46,9 +48,9 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <IconSymbol
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
               size={focused ? 30 : 26}
-              name="house.fill"
               color={color}
             />
           ),
@@ -60,9 +62,9 @@ export default function TabLayout() {
         options={{
           title: "Discover",
           tabBarIcon: ({ color, focused }) => (
-            <IconSymbol
+            <Ionicons
+              name={focused ? "compass" : "compass-outline"}
               size={focused ? 30 : 26}
-              name="safari.fill"
               color={color}
             />
           ),
@@ -73,39 +75,37 @@ export default function TabLayout() {
         name="add"
         options={{
           title: "",
-          tabBarIcon: ({ color, focused }) => (
-            <IconSymbol
-              size={focused ? 32 : 28}
-              name="plus.circle.fill"
-              color={Colors.forestGreen}
-            />
+          tabBarIcon: () => (
+            <Ionicons name="add-circle" size={32} color={Colors.forestGreen} />
           ),
           tabBarItemStyle: {
             marginTop: -8,
           },
         }}
       />
+
       <Tabs.Screen
         name="campings"
         options={{
           title: "Campings",
           tabBarIcon: ({ color, focused }) => (
-            <IconSymbol
+            <MaterialCommunityIcons
+              name="tent"
               size={focused ? 30 : 26}
-              name="tent.fill"
               color={color}
             />
           ),
         }}
       />
+
       <Tabs.Screen
         name="gearexplore"
         options={{
           title: "Gear",
           tabBarIcon: ({ color, focused }) => (
-            <IconSymbol
+            <Ionicons
+              name={focused ? "settings" : "settings-outline"}
               size={focused ? 30 : 26}
-              name="gearshape.2.fill"
               color={color}
             />
           ),
@@ -117,9 +117,9 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <IconSymbol
+            <Ionicons
+              name={focused ? "person-circle" : "person-circle-outline"}
               size={focused ? 30 : 26}
-              name="person.circle.fill"
               color={color}
             />
           ),

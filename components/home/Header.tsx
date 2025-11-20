@@ -40,9 +40,7 @@ export default function Header({ filters, activeFilter, setActiveFilter }) {
       <View style={styles.headerTop}>
         <View>
           <Text style={styles.headerTitle}>Campi</Text>
-          <Text style={styles.headerSubtitle}>
-            Welcome back {user?.username}
-          </Text>
+          <Text style={styles.headerSubtitle}>Join camping adventures</Text>
         </View>
         <TouchableOpacity style={styles.notificationButton}>
           <Ionicons name="notifications-outline" size={24} color="#fff" />
