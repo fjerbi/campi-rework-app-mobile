@@ -9,9 +9,9 @@ import {
 } from "@expo-google-fonts/inter";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
 import {
-  Dimensions,
   Image,
   Platform,
   ScrollView,
@@ -21,8 +21,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-const { width } = Dimensions.get("window");
 
 // Camping color palette
 const colors = {
@@ -57,13 +55,44 @@ const CampingsScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("All");
 
+  const router = useRouter();
+
+  // compute filtered sites
+  const filteredSites = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    return sites.filter((site) => {
+      // price filter
+      let priceMatch = true;
+      const sitePrice = (site.price || "").toLowerCase();
+      if (selectedFilter === "Free") priceMatch = sitePrice.includes("free");
+      else if (selectedFilter === "Paid")
+        priceMatch = sitePrice.includes("paid");
+      else if (selectedFilter === "Nearby")
+        priceMatch = (site.distance || 999) <= 20;
+
+      // search by name or activity
+      if (!term) return priceMatch;
+      const nameMatch = site.name?.toLowerCase().includes(term);
+      const activityMatch = Array.isArray(site.activities)
+        ? site.activities.some((a: any) =>
+            (a.activity_name || "").toString().toLowerCase().includes(term)
+          )
+        : false;
+
+      return priceMatch && (nameMatch || activityMatch);
+    });
+  }, [sites, searchQuery, selectedFilter]);
+
   const filters = ["All", "Free", "Paid", "Nearby"];
 
   const toggleFavorite = (id: string) => {
+    const oid = typeof id === "string" ? id : id?._id?.$oid || id?.$oid || id;
     setSites(
-      sites.map((site) =>
-        site._id === id ? { ...site, isFavorite: !site.isFavorite } : site
-      )
+      sites.map((site) => {
+        const siteOid = site._id?.$oid || site._id;
+        if (siteOid === oid) return { ...site, isFavorite: !site.isFavorite };
+        return site;
+      })
     );
   };
 
@@ -80,7 +109,6 @@ const CampingsScreen = () => {
   };
 
   if (!fontsLoaded) return null;
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -94,7 +122,7 @@ const CampingsScreen = () => {
           <View>
             <Text style={styles.headerTitle}>Camping Sites</Text>
             <Text style={styles.headerSubtitle}>
-              Discover {sites.length} amazing locations
+              Discover {filteredSites.length} amazing locations
             </Text>
           </View>
           <TouchableOpacity style={styles.mapButton}>
@@ -157,13 +185,14 @@ const CampingsScreen = () => {
         contentContainerStyle={styles.sitesListContent}
         showsVerticalScrollIndicator={false}
       >
-        {sites.map((site, index) => (
+        {filteredSites.map((site, index) => (
           <SiteCard
-            key={site.name}
+            key={site._id?.$oid || site.name}
             site={site}
             onToggleFavorite={toggleFavorite}
             getActivityIcon={getActivityIcon}
             isFirst={index === 0}
+            onPress={() => router.push(`/campingdetails`)}
           />
         ))}
       </ScrollView>
@@ -177,11 +206,13 @@ const SiteCard = ({
   onToggleFavorite,
   getActivityIcon,
   isFirst,
+  onPress,
 }: any) => {
   return (
     <TouchableOpacity
       style={[styles.siteCard, isFirst && styles.siteCardFirst]}
       activeOpacity={0.9}
+      onPress={() => onPress && onPress(site)}
     >
       {/* Image Container */}
       <View style={styles.imageContainer}>

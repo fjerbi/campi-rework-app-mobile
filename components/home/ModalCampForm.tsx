@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
+  FlatList,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -12,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { Calendar, DateObject } from "react-native-calendars";
+import { campingSites } from "../../data/campingSites";
 
 // Camping color palette
 const colors = {
@@ -48,6 +51,7 @@ interface CampingData {
   description: string;
   terrain: string;
   gearChecklist: string;
+  campingSiteObject?: (typeof campingSites)[0] | null;
 }
 
 interface CreateCampingModalProps {
@@ -64,6 +68,7 @@ export default function CreateCampingModal({
   const [showStartCalendar, setShowStartCalendar] = useState(false);
   const [showEndCalendar, setShowEndCalendar] = useState(false);
   const [showActivityCalendar, setShowActivityCalendar] = useState(false);
+  const [showCampingSitePicker, setShowCampingSitePicker] = useState(false);
 
   // Form state
   const [campingData, setCampingData] = useState<CampingData>({
@@ -76,6 +81,7 @@ export default function CreateCampingModal({
     description: "",
     terrain: "Mountain",
     gearChecklist: "",
+    campingSiteObject: null,
   });
 
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -84,8 +90,14 @@ export default function CreateCampingModal({
     time: "",
     description: "",
   });
+  const [searchSite, setSearchSite] = useState("");
 
   const terrainTypes = ["Mountain", "Forest", "Lake", "Desert", "Beach"];
+
+  // Filter camping sites based on search
+  const filteredSites = campingSites.filter((site) =>
+    site.name.toLowerCase().includes(searchSite.toLowerCase())
+  );
 
   const addActivity = () => {
     if (newActivity.description.trim() && newActivity.time.trim()) {
@@ -119,6 +131,7 @@ export default function CreateCampingModal({
       description: "",
       terrain: "Mountain",
       gearChecklist: "",
+      campingSiteObject: null,
     });
     setActivities([]);
   };
@@ -155,16 +168,141 @@ export default function CreateCampingModal({
               </Text>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Camping Name *</Text>
-                <TextInput
+                <Text style={styles.label}>Camping Site *</Text>
+                <TouchableOpacity
                   style={styles.input}
-                  placeholder="e.g., Mountain Vista Escape 2025"
-                  placeholderTextColor={colors.grayLight}
-                  value={campingData.name}
-                  onChangeText={(text) =>
-                    setCampingData({ ...campingData, name: text })
+                  onPress={() =>
+                    setShowCampingSitePicker(!showCampingSitePicker)
                   }
-                />
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.campingSiteInputRow}>
+                    <Text
+                      style={[
+                        styles.campingSiteInputText,
+                        !campingData.name && styles.campingSiteInputPlaceholder,
+                      ]}
+                    >
+                      {campingData.name || "Select or type a camping site..."}
+                    </Text>
+                    <Ionicons
+                      name={
+                        showCampingSitePicker ? "chevron-up" : "chevron-down"
+                      }
+                      size={20}
+                      color={colors.gray}
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                {showCampingSitePicker && (
+                  <View style={styles.campingSitePickerContainer}>
+                    <TextInput
+                      style={styles.campingSiteSearchInput}
+                      placeholder="Search camping sites..."
+                      placeholderTextColor={colors.grayLight}
+                      value={searchSite}
+                      onChangeText={setSearchSite}
+                    />
+
+                    {filteredSites.length > 0 ? (
+                      <>
+                        <FlatList
+                          data={filteredSites}
+                          keyExtractor={(item) => item._id.$oid}
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          scrollEnabled={true}
+                          contentContainerStyle={
+                            styles.campingSiteListContainer
+                          }
+                          renderItem={({ item }) => (
+                            <TouchableOpacity
+                              style={[
+                                styles.campingSiteCard,
+                                campingData.campingSiteObject?._id.$oid ===
+                                  item._id.$oid && styles.campingSiteCardActive,
+                              ]}
+                              onPress={() => {
+                                setCampingData({
+                                  ...campingData,
+                                  name: item.name,
+                                  campingSiteObject: item,
+                                });
+                                setShowCampingSitePicker(false);
+                                setSearchSite("");
+                              }}
+                            >
+                              <Image
+                                source={{ uri: item.imageUrl }}
+                                style={styles.campingSiteImage}
+                              />
+                              <View style={styles.campingSiteCardOverlay}>
+                                <Text style={styles.campingSiteName}>
+                                  {item.name}
+                                </Text>
+                                <Text style={styles.campingSiteCity}>
+                                  {item.city}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          )}
+                        />
+                        {searchSite.trim() !== "" && (
+                          <View style={styles.customNameSectionDivider} />
+                        )}
+                      </>
+                    ) : null}
+
+                    {searchSite.trim() !== "" && (
+                      <TouchableOpacity
+                        style={styles.customNameOption}
+                        onPress={() => {
+                          setCampingData({
+                            ...campingData,
+                            name: searchSite.trim(),
+                            campingSiteObject: null,
+                          });
+                          setShowCampingSitePicker(false);
+                          setSearchSite("");
+                        }}
+                      >
+                        <View style={styles.customNameIconContainer}>
+                          <Ionicons
+                            name="add-circle"
+                            size={20}
+                            color={colors.success}
+                          />
+                        </View>
+                        <View style={styles.customNameTextContainer}>
+                          <Text style={styles.customNameLabel}>
+                            Create Custom Site
+                          </Text>
+                          <Text
+                            style={styles.customNameValue}
+                            numberOfLines={1}
+                          >
+                            {searchSite.trim()}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+
+                    {filteredSites.length === 0 && searchSite.trim() === "" && (
+                      <View style={styles.noResultsContainer}>
+                        <Ionicons
+                          name="search"
+                          size={24}
+                          color={colors.grayLight}
+                          style={{ marginBottom: 8 }}
+                        />
+                        <Text style={styles.noResultsText}>
+                          Search or type a camping site name
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
 
               <View style={styles.formGroup}>
@@ -825,5 +963,155 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 18,
     color: "#fff",
+  },
+
+  // Camping Site Picker
+  campingSiteInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  campingSiteInputText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+    color: colors.dark,
+    flex: 1,
+  },
+  campingSiteInputPlaceholder: {
+    color: colors.grayLight,
+  },
+  campingSitePickerContainer: {
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.cardBg,
+    overflow: "hidden",
+  },
+  campingSiteSearchInput: {
+    backgroundColor: colors.light,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    color: colors.dark,
+  },
+  campingSiteListContainer: {
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  campingSiteCard: {
+    width: 140,
+    height: 160,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.light,
+  },
+  campingSiteCardActive: {
+    borderColor: colors.primary,
+    borderWidth: 3,
+  },
+  campingSiteImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  campingSiteCardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(26, 40, 16, 0.75)",
+    justifyContent: "flex-end",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  campingSiteName: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 12,
+    color: "#fff",
+    marginBottom: 2,
+  },
+  campingSiteCity: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+    color: colors.light,
+  },
+  noResultsContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  noResultsText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: colors.gray,
+  },
+  campingSiteOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  campingSiteOptionName: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: colors.dark,
+    flex: 1,
+  },
+  campingSiteOptionCity: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: colors.gray,
+  },
+  customSiteIndicator: {
+    marginRight: 4,
+  },
+  campingSiteOptionText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: colors.dark,
+    flex: 1,
+  },
+  customNameSectionDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 8,
+  },
+  customNameOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+    backgroundColor: colors.light,
+  },
+  customNameIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.success + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customNameTextContainer: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  customNameLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: colors.success,
+    marginBottom: 2,
+  },
+  customNameValue: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: colors.dark,
   },
 });
