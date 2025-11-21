@@ -2,7 +2,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios, { AxiosError } from "axios";
 
-const API_URL = "https://17296019cb28.ngrok-free.app";
+const API_URL = "https://fc8bbe227bcc.ngrok-free.app";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -62,6 +62,71 @@ export const authAPI = {
     } catch (err) {
       const axiosError = err as AxiosError<{ message: string }>;
       return { success: false, message: axiosError.response?.data?.message || "Token verification failed" };
+    }
+  },
+};
+
+export const tripsAPI = {
+  createTrip: async (tripData: any) => {
+    try {
+      const res = await api.post("/trips", tripData);
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to create trip" };
+    }
+  },
+
+  getTrips: async () => {
+    try {
+      const res = await api.get("/trips");
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to fetch trips" };
+    }
+  },
+
+  getTripByUser: async (userId: string) => {
+    try {
+      const res = await api.get(`/trips/user/${userId}`);
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to fetch user trips" };
+    }
+  },
+
+  joinTrip: async (tripId: string, userId: string) => {
+    try {
+      const res = await api.post(`/trips/${tripId}/join`, { userId });
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to join trip" };
+    }
+  },
+
+  leaveTrip: async (tripId: string, userId: string) => {
+    try {
+      const res = await api.post(`/trips/${tripId}/leave`, { userId });
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to leave trip" };
+    }
+  },
+
+  getTripById: async (tripId: string) => {
+    try {
+      const res = await api.get(`/trips/${tripId}`);
+      // The backend might return data directly or wrapped in an object
+      const tripData = res.data?.trip || res.data;
+      return { success: true, data: tripData };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      console.error("getTripById error:", axiosError.response?.data);
+      return { success: false, message: axiosError.response?.data?.message || "Failed to fetch trip" };
     }
   },
 };

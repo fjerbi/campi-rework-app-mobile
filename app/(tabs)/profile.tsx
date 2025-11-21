@@ -177,7 +177,12 @@ const Profile = () => {
         {/* Profile Info */}
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
-            <Image source={{ uri: userData.avatar }} style={styles.avatar} />
+            <Image
+              source={{
+                uri: `https://ui-avatars.com/api/?name=${user?.first_name}+${user?.last_name}`,
+              }}
+              style={styles.avatar}
+            />
             <View style={styles.levelBadge}>
               <Ionicons name="bonfire" size={14} color="#fff" />
               <Text style={styles.levelText}>{userData.level}</Text>

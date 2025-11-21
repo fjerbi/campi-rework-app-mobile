@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Modal,
@@ -15,6 +17,8 @@ import {
 } from "react-native";
 import { Calendar, DateObject } from "react-native-calendars";
 import { campingSites } from "../../data/campingSites";
+import { tripsAPI } from "../../services/api";
+import { useAuthStore } from "../../stores/authStore";
 
 // Camping color palette
 const colors = {
@@ -57,18 +61,18 @@ interface CampingData {
 interface CreateCampingModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: CampingData, activities: Activity[]) => void;
+  onSubmit?: (data: CampingData, activities: Activity[]) => void;
 }
 
 export default function CreateCampingModal({
   visible,
   onClose,
-  onSubmit,
 }: CreateCampingModalProps) {
   const [showStartCalendar, setShowStartCalendar] = useState(false);
   const [showEndCalendar, setShowEndCalendar] = useState(false);
   const [showActivityCalendar, setShowActivityCalendar] = useState(false);
   const [showCampingSitePicker, setShowCampingSitePicker] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Form state
   const [campingData, setCampingData] = useState<CampingData>({
@@ -118,22 +122,86 @@ export default function CreateCampingModal({
     setActivities(activities.filter((a) => a.id !== id));
   };
 
-  const handleSubmit = () => {
-    onSubmit(campingData, activities);
-    // Reset form
-    setCampingData({
-      name: "",
-      participants: "",
-      startDate: new Date(),
-      endDate: new Date(),
-      equipment: "",
-      meetingPoint: "",
-      description: "",
-      terrain: "Mountain",
-      gearChecklist: "",
-      campingSiteObject: null,
-    });
-    setActivities([]);
+  const handleSubmit = async () => {
+    try {
+      setIsLoading(true);
+
+      // Get current user from auth store
+      const user = useAuthStore.getState().user;
+
+      if (!user) {
+        Alert.alert("Error", "You must be logged in to create a trip");
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate required fields
+      if (!campingData.name || !campingData.startDate || !campingData.endDate) {
+        Alert.alert(
+          "Error",
+          "Please fill in all required fields (name, dates)"
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Prepare payload with organizer ID
+      const payload = {
+        organizer: user.id,
+        participants: campingData.participants
+          ? campingData.participants
+              .split(",")
+              .map((p: string) => p.trim())
+              .filter((p: string) => p)
+          : [],
+        campingData,
+        activities,
+        description:
+          campingData.description || `New camping trip at ${campingData.name}`,
+      };
+
+      console.log("Submitting trip:", payload);
+
+      // Make POST request to create trip
+      const response = await tripsAPI.createTrip(payload);
+
+      if (!response.success) {
+        Alert.alert("Error", response.message || "Failed to create trip");
+        setIsLoading(false);
+        return;
+      }
+
+      // Success - show alert and reset form
+      Alert.alert("Success", "Trip created successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            // Reset form
+            setCampingData({
+              name: "",
+              participants: "",
+              startDate: new Date(),
+              endDate: new Date(),
+              equipment: "",
+              meetingPoint: "",
+              description: "",
+              terrain: "Mountain",
+              gearChecklist: "",
+              campingSiteObject: null,
+            });
+            setActivities([]);
+            setIsLoading(false);
+            onClose();
+          },
+        },
+      ]);
+
+      console.log("Trip created successfully:", response.data);
+    } catch (error) {
+      console.error("Error creating trip:", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -693,6 +761,7 @@ export default function CreateCampingModal({
               style={styles.submitButton}
               onPress={handleSubmit}
               activeOpacity={0.8}
+              disabled={isLoading}
             >
               <LinearGradient
                 colors={[colors.primary, colors.primaryDark]}
@@ -700,8 +769,21 @@ export default function CreateCampingModal({
                 end={{ x: 1, y: 1 }}
                 style={styles.submitButtonGradient}
               >
-                <Ionicons name="checkmark-circle" size={24} color="#fff" />
-                <Text style={styles.submitButtonText}>Create Camping Trip</Text>
+                {isLoading ? (
+                  <>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.submitButtonText}>
+                      Creating Trip...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                    <Text style={styles.submitButtonText}>
+                      Create Camping Trip
+                    </Text>
+                  </>
+                )}
               </LinearGradient>
             </TouchableOpacity>
           </ScrollView>

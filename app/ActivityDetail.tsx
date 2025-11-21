@@ -1,8 +1,12 @@
+import { tripsAPI } from "@/services/api";
+import { useAuthStore } from "@/stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   Platform,
@@ -37,6 +41,7 @@ export default function ActivityDetail() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [isJoined, setIsJoined] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Parse the activity data from params
   const activity = params.activity
@@ -53,8 +58,51 @@ export default function ActivityDetail() {
 
   const spotsLeft = activity.maxParticipants - activity.participants;
 
-  const handleJoinActivity = () => {
-    setIsJoined(!isJoined);
+  const handleJoinActivity = async () => {
+    try {
+      setIsLoading(true);
+
+      // Get current user from auth store
+      const user = useAuthStore.getState().user;
+
+      if (!user) {
+        Alert.alert("Error", "You must be logged in to join a trip");
+        setIsLoading(false);
+        return;
+      }
+
+      // If already joined, leave the trip
+      if (isJoined) {
+        const response = await tripsAPI.leaveTrip(activity._id, user.id);
+
+        if (!response.success) {
+          Alert.alert("Error", response.message || "Failed to leave trip");
+          setIsLoading(false);
+          return;
+        }
+
+        Alert.alert("Success", "You have left the trip");
+        setIsJoined(false);
+      } else {
+        // Join the trip
+        const response = await tripsAPI.joinTrip(activity._id, user.id);
+
+        if (!response.success) {
+          Alert.alert("Error", response.message || "Failed to join trip");
+          setIsLoading(false);
+          return;
+        }
+
+        Alert.alert("Success", "You have successfully joined the trip!");
+        setIsJoined(true);
+      }
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error:", error);
+      Alert.alert("Error", "An unexpected error occurred");
+      setIsLoading(false);
+    }
   };
 
   // Mock additional data - Camping theme
@@ -346,7 +394,7 @@ export default function ActivityDetail() {
             spotsLeft === 0 && styles.joinButtonDisabled,
           ]}
           onPress={handleJoinActivity}
-          disabled={spotsLeft === 0}
+          disabled={spotsLeft === 0 || isLoading}
         >
           <LinearGradient
             colors={
@@ -360,24 +408,33 @@ export default function ActivityDetail() {
             end={{ x: 1, y: 1 }}
             style={styles.joinButtonGradient}
           >
-            <Ionicons
-              name={
-                spotsLeft === 0
-                  ? "lock-closed"
-                  : isJoined
-                  ? "checkmark-circle"
-                  : "bonfire"
-              }
-              size={24}
-              color="#fff"
-            />
-            <Text style={styles.joinButtonText}>
-              {spotsLeft === 0
-                ? "Trip Full"
-                : isJoined
-                ? "You're In!"
-                : "Join This Trip"}
-            </Text>
+            {isLoading ? (
+              <>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.joinButtonText}>Processing...</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons
+                  name={
+                    spotsLeft === 0
+                      ? "lock-closed"
+                      : isJoined
+                      ? "checkmark-circle"
+                      : "bonfire"
+                  }
+                  size={24}
+                  color="#fff"
+                />
+                <Text style={styles.joinButtonText}>
+                  {spotsLeft === 0
+                    ? "Trip Full"
+                    : isJoined
+                    ? "You're In!"
+                    : "Join This Trip"}
+                </Text>
+              </>
+            )}
           </LinearGradient>
         </TouchableOpacity>
       </View>
