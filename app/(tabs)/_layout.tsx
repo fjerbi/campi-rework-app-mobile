@@ -111,7 +111,32 @@ export default function TabLayout() {
           ),
         }}
       />
-
+      <Tabs.Screen
+        name="upcomingevents"
+        options={{
+          title: "Upcoming",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "calendar" : "calendar-outline"}
+              size={focused ? 30 : 26}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="sharedexperience"
+        options={{
+          title: "Experience",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "share-social" : "share-social-outline"}
+              size={focused ? 30 : 26}
+              color={color}
+            />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{

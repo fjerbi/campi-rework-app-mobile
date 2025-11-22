@@ -1,4 +1,5 @@
-import { gearListings } from "@/data/dummy";
+import { gearAPI } from "@/services/api";
+import { useAuthStore } from "@/stores/authStore";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -9,7 +10,7 @@ import {
 } from "@expo-google-fonts/inter";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -53,10 +54,17 @@ export default function ExchangeGear() {
     Inter_800ExtraBold,
   });
 
-  const [listings, setListings] = useState(gearListings);
+  const user = useAuthStore((state) => state.user);
+  const [listings, setListings] = useState<any[]>([]);
+  const [loadingListings, setLoadingListings] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
   const [activeTab, setActiveTab] = useState("Browse");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedGearId, setSelectedGearId] = useState<string | null>(null);
+  const [ownerInfo, setOwnerInfo] = useState<any>(null);
+  const [loadingOwner, setLoadingOwner] = useState(false);
+  const [addingGear, setAddingGear] = useState(false);
 
   // Form state
   const [newGear, setNewGear] = useState({
@@ -80,18 +88,62 @@ export default function ExchangeGear() {
   const conditions = ["Like New", "Excellent", "Good", "Fair"];
   const tabs = ["Browse", "My Gear"];
 
-  const handleBookmark = (id: number) => {
+  useEffect(() => {
+    fetchGearListings();
+  }, []);
+
+  const fetchGearListings = async () => {
+    setLoadingListings(true);
+    const res = await gearAPI.getGears();
+    if (res.success) {
+      const gears = Array.isArray(res.data) ? res.data : res.data?.gears || [];
+      setListings(gears);
+      console.log(gears);
+    } else {
+      console.log("Error fetching gears:", res.message);
+      setListings([]);
+    }
+    setLoadingListings(false);
+  };
+
+  const handleBookmark = (id: string) => {
     setListings(
       listings.map((item) =>
-        item.id === id ? { ...item, isBookmarked: !item.isBookmarked } : item
+        item._id === id ? { ...item, isBookmarked: !item.isBookmarked } : item
       )
     );
   };
 
-  const handleAddGear = () => {
-    console.log("Adding new gear:", newGear);
+  const handleAddGear = async () => {
+    if (!newGear.name || !newGear.description || !newGear.location) {
+      alert("Please fill in all required fields");
+      return;
+    }
+    if (!user || !user.id) {
+      alert("You must be logged in to post gear");
+      return;
+    }
+    setAddingGear(true);
+    const res = await gearAPI.createGear({
+      name: newGear.name,
+      description: newGear.description,
+      condition: newGear.condition,
+      category: newGear.category,
+      location: newGear.location,
+      visibility: newGear.status,
+      image: newGear.image || null,
+      owner: user.id,
+    });
+    setAddingGear(false);
+
+    if (!res.success) {
+      alert(res.message || "Could not post gear");
+      return;
+    }
+
     setShowAddModal(false);
-    // Reset form
+    fetchGearListings();
+
     setNewGear({
       name: "",
       description: "",
@@ -102,6 +154,41 @@ export default function ExchangeGear() {
       image: null,
     });
   };
+
+  const handleDeleteGear = async (gearId: string) => {
+    if (!confirm("Are you sure you want to delete this gear?")) return;
+    const res = await gearAPI.deleteGear(gearId);
+    if (res.success) {
+      setListings(listings.filter((item) => item._id !== gearId));
+    } else {
+      alert(res.message || "Failed to delete gear");
+    }
+  };
+
+  const handleContactOwner = async (gearId: string) => {
+    setSelectedGearId(gearId);
+    setLoadingOwner(true);
+    const res = await gearAPI.contactOwner(gearId);
+    setLoadingOwner(false);
+    if (res.success) {
+      setOwnerInfo(res.data);
+      setShowContactModal(true);
+    } else {
+      alert(res.message || "Failed to fetch owner info");
+    }
+  };
+
+  const filteredListings =
+    activeTab === "My Gear"
+      ? listings.filter(
+          (item) =>
+            (item.owner?._id === user?.id || item.owner?._id === user?._id) &&
+            (selectedCategory === "All" || item.category === selectedCategory)
+        )
+      : listings.filter(
+          (item) =>
+            selectedCategory === "All" || item.category === selectedCategory
+        );
 
   if (!fontsLoaded) return null;
 
@@ -183,13 +270,35 @@ export default function ExchangeGear() {
         contentContainerStyle={styles.listingsContent}
         showsVerticalScrollIndicator={false}
       >
-        {listings.map((listing) => (
-          <GearCard
-            key={listing.id}
-            listing={listing}
-            onBookmark={handleBookmark}
-          />
-        ))}
+        {loadingListings ? (
+          <Text
+            style={{ color: colors.gray, textAlign: "center", marginTop: 20 }}
+          >
+            Loading gears...
+          </Text>
+        ) : filteredListings.length === 0 ? (
+          <Text
+            style={{ color: colors.gray, textAlign: "center", marginTop: 20 }}
+          >
+            {activeTab === "My Gear"
+              ? "No gears listed yet"
+              : "No gears available"}
+          </Text>
+        ) : (
+          filteredListings.map((listing) => (
+            <GearCard
+              key={listing._id}
+              listing={listing}
+              onBookmark={handleBookmark}
+              onDelete={handleDeleteGear}
+              onContact={handleContactOwner}
+              isOwner={
+                listing.owner?._id === user?.id ||
+                listing.owner?._id === user?._id
+              }
+            />
+          ))
+        )}
       </ScrollView>
 
       {/* Add Gear Button */}
@@ -409,6 +518,7 @@ export default function ExchangeGear() {
               <TouchableOpacity
                 style={styles.submitButton}
                 onPress={handleAddGear}
+                disabled={addingGear}
                 activeOpacity={0.8}
               >
                 <LinearGradient
@@ -418,10 +528,152 @@ export default function ExchangeGear() {
                   style={styles.submitButtonGradient}
                 >
                   <Ionicons name="checkmark-circle" size={24} color="#fff" />
-                  <Text style={styles.submitButtonText}>Post Gear</Text>
+                  <Text style={styles.submitButtonText}>
+                    {addingGear ? "Posting..." : "Post Gear"}
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Contact Owner Modal */}
+      <Modal
+        visible={showContactModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowContactModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { maxHeight: "60%", borderRadius: 20 },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Contact Owner</Text>
+              <TouchableOpacity onPress={() => setShowContactModal(false)}>
+                <Ionicons name="close" size={28} color={colors.dark} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingOwner ? (
+              <Text style={{ textAlign: "center", color: colors.gray }}>
+                Loading...
+              </Text>
+            ) : ownerInfo ? (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Owner Info */}
+                <View style={{ marginBottom: 20 }}>
+                  <Image
+                    source={{
+                      uri:
+                        ownerInfo.owner?.picture ||
+                        "https://via.placeholder.com/80",
+                    }}
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: 40,
+                      marginBottom: 12,
+                    }}
+                  />
+                  <Text style={[styles.modalTitle, { marginBottom: 4 }]}>
+                    {ownerInfo.owner?.username}
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <Ionicons name="mail" size={16} color={colors.primary} />
+                    <Text
+                      style={{
+                        fontFamily: "Inter_500Medium",
+                        color: colors.dark,
+                      }}
+                    >
+                      {ownerInfo.owner?.email}
+                    </Text>
+                  </View>
+                  {ownerInfo.owner?.verified && (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 4,
+                        marginTop: 8,
+                      }}
+                    >
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color={colors.success}
+                      />
+                      <Text
+                        style={{
+                          fontFamily: "Inter_500Medium",
+                          color: colors.success,
+                        }}
+                      >
+                        Verified
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Gear Info */}
+                <View
+                  style={{
+                    marginBottom: 20,
+                    padding: 12,
+                    backgroundColor: colors.light,
+                    borderRadius: 12,
+                  }}
+                >
+                  <Text style={[styles.label, { marginBottom: 8 }]}>
+                    About this gear
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_500Medium",
+                      color: colors.dark,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {ownerInfo.gear?.name}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Inter_400Regular",
+                      color: colors.gray,
+                    }}
+                  >
+                    {ownerInfo.gear?.description}
+                  </Text>
+                </View>
+
+                {/* Email Button */}
+                <TouchableOpacity
+                  style={styles.submitButton}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={[colors.primary, colors.primaryDark]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.submitButtonGradient}
+                  >
+                    <Ionicons name="mail" size={20} color="#fff" />
+                    <Text style={styles.submitButtonText}>Send Email</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -430,28 +682,30 @@ export default function ExchangeGear() {
 }
 
 // Gear Card Component
-const GearCard = ({ listing, onBookmark }: any) => {
+const GearCard = ({
+  listing,
+  onBookmark,
+  onDelete,
+  onContact,
+  isOwner,
+}: any) => {
   const getConditionColor = (condition: string) => {
-    switch (condition) {
-      case "Like New":
-        return colors.success;
-      case "Excellent":
-        return colors.primary;
-      case "Good":
-        return colors.warning;
-      default:
-        return colors.gray;
-    }
+    if (!condition) return colors.gray;
+    const cond = condition.toLowerCase();
+    if (cond.includes("new")) return colors.success;
+    if (cond.includes("excellent")) return colors.primary;
+    if (cond.includes("good")) return colors.warning;
+    return colors.gray;
   };
 
   return (
     <View style={styles.card}>
       {/* Gear Image */}
       <View style={styles.cardImageContainer}>
-        <Image source={{ uri: listing.gear.image }} style={styles.cardImage} />
+        <Image source={{ uri: listing.image }} style={styles.cardImage} />
         <TouchableOpacity
           style={styles.bookmarkButton}
-          onPress={() => onBookmark(listing.id)}
+          onPress={() => onBookmark(listing._id)}
           activeOpacity={0.7}
         >
           <Ionicons
@@ -461,71 +715,95 @@ const GearCard = ({ listing, onBookmark }: any) => {
           />
         </TouchableOpacity>
         <View style={styles.categoryBadge}>
-          <Text style={styles.categoryBadgeText}>{listing.gear.category}</Text>
+          <Text style={styles.categoryBadgeText}>{listing.category}</Text>
         </View>
+        {isOwner && (
+          <TouchableOpacity
+            style={[
+              styles.bookmarkButton,
+              { top: 12, right: 60, backgroundColor: colors.danger },
+            ]}
+            onPress={() => onDelete(listing._id)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash" size={20} color="#fff" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Card Content */}
       <View style={styles.cardContent}>
         {/* Gear Info */}
         <View style={styles.gearInfo}>
-          <Text style={styles.gearName}>{listing.gear.name}</Text>
+          <Text style={styles.gearName}>{listing.name}</Text>
           <View
             style={[
               styles.conditionBadge,
               {
-                backgroundColor:
-                  getConditionColor(listing.gear.condition) + "15",
+                backgroundColor: getConditionColor(listing.condition) + "15",
               },
             ]}
           >
             <View
               style={[
                 styles.conditionDot,
-                { backgroundColor: getConditionColor(listing.gear.condition) },
+                { backgroundColor: getConditionColor(listing.condition) },
               ]}
             />
             <Text
               style={[
                 styles.conditionText,
-                { color: getConditionColor(listing.gear.condition) },
+                { color: getConditionColor(listing.condition) },
               ]}
             >
-              {listing.gear.condition}
+              {listing.condition}
             </Text>
           </View>
         </View>
 
         <Text style={styles.gearDescription} numberOfLines={2}>
-          {listing.gear.description}
+          {listing.description}
         </Text>
 
-        {/* User Info */}
-        <View style={styles.userSection}>
-          <Image
-            source={{ uri: listing.user.avatar }}
-            style={styles.userAvatar}
-          />
-          <View style={styles.userDetails}>
-            <Text style={styles.userName}>{listing.user.name}</Text>
-            <View style={styles.userMeta}>
-              <View style={styles.rating}>
-                <Ionicons name="star" size={14} color={colors.accentBright} />
-                <Text style={styles.ratingText}>{listing.user.rating}</Text>
-              </View>
-              <View style={styles.exchangeCount}>
-                <Ionicons
-                  name="swap-horizontal"
-                  size={14}
-                  color={colors.gray}
-                />
-                <Text style={styles.exchangeCountText}>
-                  {listing.user.exchangeCount} exchanges
-                </Text>
+        {/* Gear Details */}
+        <View style={styles.gearDetailsContainer}>
+          <View style={styles.detailBadge}>
+            <Ionicons name="cube" size={14} color={colors.primary} />
+            <Text style={styles.detailText}>{listing.category}</Text>
+          </View>
+          <View style={styles.detailBadge}>
+            <Ionicons name="checkmark-done" size={14} color={colors.primary} />
+            <Text style={styles.detailText}>{listing.condition}</Text>
+          </View>
+          <View style={styles.detailBadge}>
+            <Ionicons name="location" size={14} color={colors.primary} />
+            <Text style={styles.detailText}>{listing.location}</Text>
+          </View>
+        </View>
+        {listing.owner && (
+          <View style={styles.userSection}>
+            <Image
+              source={{
+                uri:
+                  listing.owner?.picture ||
+                  `https://ui-avatars.com/api/?name=${listing.owner?.first_name}+${listing.owner?.last_name}`,
+              }}
+              style={styles.userAvatar}
+            />
+            <View style={styles.userDetails}>
+              <Text style={styles.userName}>
+                {listing.owner.username ||
+                  `${listing.owner.first_name} ${listing.owner.last_name}`}
+              </Text>
+              <View style={styles.userMeta}>
+                <View style={styles.rating}>
+                  <Ionicons name="star" size={14} color={colors.accentBright} />
+                  <Text style={styles.ratingText}>—</Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Location & Time */}
         <View style={styles.cardFooter}>
@@ -533,21 +811,27 @@ const GearCard = ({ listing, onBookmark }: any) => {
             <Ionicons name="location" size={16} color={colors.gray} />
             <Text style={styles.locationText}>{listing.location}</Text>
           </View>
-          <Text style={styles.timeText}>{listing.postedTime}</Text>
+          <Text style={styles.timeText}>—</Text>
         </View>
 
         {/* Action Button */}
-        <TouchableOpacity style={styles.contactButton} activeOpacity={0.8}>
-          <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.contactButtonGradient}
+        {!isOwner && (
+          <TouchableOpacity
+            style={styles.contactButton}
+            onPress={() => onContact(listing._id)}
+            activeOpacity={0.8}
           >
-            <Ionicons name="chatbubble-outline" size={20} color="#fff" />
-            <Text style={styles.contactButtonText}>Contact Owner</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.contactButtonGradient}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color="#fff" />
+              <Text style={styles.contactButtonText}>Contact Owner</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -759,6 +1043,30 @@ const styles = StyleSheet.create({
     color: colors.gray,
     lineHeight: 20,
     marginBottom: 16,
+  },
+
+  // Gear Details
+  gearDetailsContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+    flexWrap: "wrap",
+  },
+  detailBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.light,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  detailText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: colors.dark,
   },
 
   // User Section

@@ -1,8 +1,9 @@
 // services/api.ts
+import { useAuthStore } from "@/stores/authStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios, { AxiosError } from "axios";
 
-const API_URL = "https://fc8bbe227bcc.ngrok-free.app";
+export const API_URL = "https://2392d0fd91ae.ngrok-free.app";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -14,7 +15,8 @@ const api = axios.create({
 // Add token automatically to requests
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem("authToken");
+    // Get token from Zustand auth store
+    const token = useAuthStore.getState().token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -127,6 +129,48 @@ export const tripsAPI = {
       const axiosError = err as AxiosError<{ message: string }>;
       console.error("getTripById error:", axiosError.response?.data);
       return { success: false, message: axiosError.response?.data?.message || "Failed to fetch trip" };
+    }
+  },
+};
+
+export const gearAPI = {
+  getGears: async () => {
+    try {
+      const res = await api.get("/gear");
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to fetch gears" };
+    }
+  },
+
+  createGear: async (gearData: any) => {
+    try {
+      const res = await api.post("/gear", gearData);
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to create gear" };
+    }
+  },
+
+  deleteGear: async (gearId: string) => {
+    try {
+      const res = await api.delete(`/gear/${gearId}`);
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to delete gear" };
+    }
+  },
+
+  contactOwner: async (gearId: string) => {
+    try {
+      const res = await api.get(`/gear/${gearId}/contact`);
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to get owner contact" };
     }
   },
 };

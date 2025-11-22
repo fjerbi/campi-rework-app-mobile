@@ -1,3 +1,4 @@
+import { tripsAPI } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import {
   Inter_400Regular,
@@ -9,8 +10,9 @@ import {
 } from "@expo-google-fonts/inter";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   Platform,
@@ -144,6 +146,26 @@ const Profile = () => {
     "activities"
   );
   const user = useAuthStore((state) => state.user);
+  const [userTrips, setUserTrips] = useState<any[]>([]);
+  const [loadingTrips, setLoadingTrips] = useState(false);
+
+  useEffect(() => {
+    const fetchUserTrips = async () => {
+      const userId = (user as any)?.id || (user as any)?._id;
+      if (!userId) return;
+      setLoadingTrips(true);
+      const res = await tripsAPI.getTripByUser(userId);
+      if (res.success) {
+        const data = res.data?.trips || res.data;
+        setUserTrips(Array.isArray(data) ? data : []);
+      } else {
+        setUserTrips([]);
+      }
+      setLoadingTrips(false);
+    };
+    fetchUserTrips();
+  }, [user]);
+
   if (!fontsLoaded) return null;
 
   return (
@@ -210,28 +232,30 @@ const Profile = () => {
             </View>
           </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.primaryButton}>
-              <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.primaryButtonGradient}
-              >
-                <Ionicons name="person-add" size={20} color="#fff" />
-                <Text style={styles.primaryButtonText}>Follow</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton}>
-              <Ionicons
-                name="chatbubble-outline"
-                size={20}
-                color={colors.primary}
-              />
-              <Text style={styles.secondaryButtonText}>Message</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Action Buttons - Only show if not viewing own profile */}
+          {user && (
+            <View style={styles.actionButtons}>
+              <TouchableOpacity style={styles.primaryButton}>
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.primaryButtonGradient}
+                >
+                  <Ionicons name="person-add" size={20} color="#fff" />
+                  <Text style={styles.primaryButtonText}>Follow</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryButton}>
+                <Ionicons
+                  name="chatbubble-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.secondaryButtonText}>Message</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Stats */}
           <View style={styles.statsContainer}>
@@ -326,64 +350,114 @@ const Profile = () => {
         <View style={styles.tabContent}>
           {activeTab === "activities" ? (
             <View style={styles.activitiesList}>
-              {userData.recentActivities.map((activity) => (
-                <TouchableOpacity key={activity.id} style={styles.activityCard}>
-                  <Image
-                    source={{ uri: activity.image }}
-                    style={styles.activityImage}
-                  />
-                  <LinearGradient
-                    colors={["transparent", "rgba(0,0,0,0.6)"]}
-                    style={styles.activityImageGradient}
-                  >
-                    <View style={styles.activityBadge}>
-                      <Ionicons
-                        name={activity.icon as any}
-                        size={14}
-                        color="#fff"
+              {loadingTrips ? (
+                <ActivityIndicator size="large" color={colors.primary} />
+              ) : userTrips.length > 0 ? (
+                userTrips.map((trip) => {
+                  const key = trip._id || trip.id;
+                  const image =
+                    trip.image ||
+                    trip.coverImage ||
+                    trip.campingSite?.image ||
+                    "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&q=80";
+                  const distance = trip.trailDistance
+                    ? `${trip.trailDistance} km hike`
+                    : "—";
+                  const duration = trip.nights
+                    ? `${trip.nights} nights`
+                    : trip.duration || "—";
+                  const date =
+                    trip.startDate || trip.createdAt || "Unknown date";
+                  const participantsList = Array.isArray(trip.participants)
+                    ? trip.participants
+                        .map((p: any) =>
+                          typeof p === "string"
+                            ? p
+                            : p.username ||
+                              `${p.first_name || p.name || ""} ${
+                                p.last_name || ""
+                              }`
+                        )
+                        .map((s: string) => s.trim())
+                        .filter(Boolean)
+                    : [];
+                  const participantsPreview =
+                    participantsList.length > 0
+                      ? participantsList.slice(0, 3).join(", ") +
+                        (participantsList.length > 3
+                          ? ` +${participantsList.length - 3}`
+                          : "")
+                      : "No participants yet";
+
+                  return (
+                    <TouchableOpacity key={key} style={styles.activityCard}>
+                      <Image
+                        source={{ uri: image }}
+                        style={styles.activityImage}
                       />
-                    </View>
-                  </LinearGradient>
-                  <View style={styles.activityInfo}>
-                    <View style={styles.activityHeader}>
-                      <Text style={styles.activityType}>{activity.type}</Text>
-                      <Text style={styles.activityDate}>{activity.date}</Text>
-                    </View>
-                    <View style={styles.activityStats}>
-                      <View style={styles.activityStatItem}>
-                        <Ionicons
-                          name="navigate-outline"
-                          size={14}
-                          color={colors.gray}
-                        />
-                        <Text style={styles.activityStatText}>
-                          {activity.distance}
+                      <LinearGradient
+                        colors={["transparent", "rgba(0,0,0,0.6)"]}
+                        style={styles.activityImageGradient}
+                      >
+                        <View style={styles.activityBadge}>
+                          <Ionicons
+                            name={"trail-sign" as any}
+                            size={14}
+                            color="#fff"
+                          />
+                        </View>
+                      </LinearGradient>
+                      <View style={styles.activityInfo}>
+                        <View style={styles.activityHeader}>
+                          <Text style={styles.activityType}>
+                            {trip.name || "Untitled Trip"}
+                          </Text>
+                          <Text style={styles.activityDate}>{date}</Text>
+                        </View>
+                        <Text style={styles.participantsText}>
+                          {participantsPreview}
                         </Text>
+                        <View style={styles.activityStats}>
+                          <View style={styles.activityStatItem}>
+                            <Ionicons
+                              name="navigate-outline"
+                              size={14}
+                              color={colors.gray}
+                            />
+                            <Text style={styles.activityStatText}>
+                              {distance}
+                            </Text>
+                          </View>
+                          <View style={styles.activityStatItem}>
+                            <Ionicons
+                              name="moon-outline"
+                              size={14}
+                              color={colors.gray}
+                            />
+                            <Text style={styles.activityStatText}>
+                              {duration}
+                            </Text>
+                          </View>
+                          <View style={styles.activityStatItem}>
+                            <Ionicons
+                              name="trending-up-outline"
+                              size={14}
+                              color={colors.gray}
+                            />
+                            <Text style={styles.activityStatText}>
+                              {trip.elevation || "—"}
+                            </Text>
+                          </View>
+                        </View>
                       </View>
-                      <View style={styles.activityStatItem}>
-                        <Ionicons
-                          name="moon-outline"
-                          size={14}
-                          color={colors.gray}
-                        />
-                        <Text style={styles.activityStatText}>
-                          {activity.duration}
-                        </Text>
-                      </View>
-                      <View style={styles.activityStatItem}>
-                        <Ionicons
-                          name="trending-up-outline"
-                          size={14}
-                          color={colors.gray}
-                        />
-                        <Text style={styles.activityStatText}>
-                          {activity.elevation}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <Text style={{ color: colors.gray }}>
+                  No trips organized yet.
+                </Text>
+              )}
             </View>
           ) : (
             <View style={styles.achievementsGrid}>
@@ -767,6 +841,13 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
     color: colors.darkLight,
+  },
+  participantsText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: colors.gray,
+    marginTop: 6,
+    marginBottom: 8,
   },
   achievementsGrid: {
     flexDirection: "row",
