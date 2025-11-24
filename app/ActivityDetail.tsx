@@ -1,3 +1,4 @@
+import { UserSearch } from "@/components/UserSearch";
 import { tripsAPI } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,17 +8,18 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Image,
+  Modal,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 
-const { width } = Dimensions.get("window");
+// const { width } = Dimensions.get("window");
 
 // Camping color palette
 const colors = {
@@ -43,6 +45,8 @@ export default function ActivityDetail() {
   const [isJoined, setIsJoined] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [fullTrip, setFullTrip] = useState<any>(null);
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [inviteUserId, setInviteUserId] = useState("");
 
   // Parse the activity data from params
   const activity = params.activity
@@ -126,6 +130,51 @@ export default function ActivityDetail() {
       </View>
     );
   }
+
+  const currentUser = useAuthStore.getState().user;
+  const isOrganizer = Boolean(
+    display?.organizer &&
+      String(display.organizer._id || display.organizer.id) ===
+        String(currentUser?.id)
+  );
+
+  const handleInviteUser = async (user: any) => {
+    console.log("handleInviteUser called with:", user);
+
+    // Handle both _id and id fields
+    const userId = user?._id || user?.id;
+
+    if (!user || !userId) {
+      console.error("No user selected or invalid user:", user);
+      Alert.alert("Error", "Please select a valid user to invite.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const tripId = display._id || display.id;
+      const res = await tripsAPI.inviteUser(
+        tripId,
+        userId, // Use the extracted user ID
+        currentUser?._id || currentUser?.id // Handle both _id and id for current user
+      );
+
+      if (!res.success) {
+        Alert.alert("Invite failed", res.message || "Unable to invite user");
+        return;
+      }
+
+      Alert.alert("Success", "User invited successfully");
+      const updated = res?.data?.trip || res?.data || null;
+      if (updated) setFullTrip(updated);
+      setInviteModalVisible(false);
+    } catch (err) {
+      console.error("Invite error:", err);
+      Alert.alert("Error", "An error occurred while sending the invite");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleJoinActivity = async () => {
     try {
@@ -370,8 +419,8 @@ export default function ActivityDetail() {
 
           {/* Tags */}
           <View style={styles.tagsContainer}>
-            {activity.tags.map((tag: string, index: number) => (
-              <View key={index} style={styles.tag}>
+            {activity.tags.map((tag: string) => (
+              <View key={`tag-${tag}`} style={styles.tag}>
                 <Text style={styles.tagText}>{tag}</Text>
               </View>
             ))}
@@ -426,8 +475,8 @@ export default function ActivityDetail() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Gear checklist</Text>
             {gearItems.length > 0 ? (
-              gearItems.map((item, index) => (
-                <View key={index} style={styles.equipmentItem}>
+              gearItems.map((item) => (
+                <View key={`gear-${item}`} style={styles.equipmentItem}>
                   <Ionicons
                     name="checkmark-circle"
                     size={20}
@@ -454,11 +503,44 @@ export default function ActivityDetail() {
                   </Text>
                 </View>
               )}
+              <TouchableOpacity
+                style={styles.shareButton}
+                onPress={async () => {
+                  try {
+                    const tripId = display._id || display.id;
+                    const shareUrl = `https://yourapp.com/trips/${tripId}`;
+
+                    await Share.share(
+                      {
+                        message: `Join me on this trip: ${display.title}\n\n${shareUrl}`,
+                        title: `Join my trip: ${display.title}`,
+                        url: shareUrl,
+                      },
+                      {
+                        dialogTitle: "Share Trip",
+                        subject: `Join my trip: ${display.title}`,
+                      }
+                    );
+                  } catch (error) {
+                    console.error("Error sharing:", error);
+                    Alert.alert(
+                      "Error",
+                      "Failed to share trip. Please try again."
+                    );
+                  }
+                }}
+              >
+                <Ionicons name="share-social" size={20} color="#fff" />
+                <Text style={styles.shareButtonText}>Share Trip</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.participantsList}>
-              {participantsRaw.length > 0 ? (
+              {Array.isArray(participantsRaw) && participantsRaw.length > 0 ? (
                 participantsRaw.map((p: any, index: number) => {
                   const isString = typeof p === "string";
+                  const id = isString
+                    ? p
+                    : p.id || p.userId || `participant-${index}`;
                   const name = isString
                     ? "Participant"
                     : p.name ||
@@ -477,7 +559,10 @@ export default function ActivityDetail() {
                       )}&background=2D5016&color=fff`;
 
                   return (
-                    <View key={index} style={styles.participantItem}>
+                    <View
+                      key={`participant-${id}-${index}`}
+                      style={styles.participantItem}
+                    >
                       <Image
                         source={{ uri: avatar }}
                         style={styles.participantAvatar}
@@ -496,6 +581,39 @@ export default function ActivityDetail() {
           <View style={{ height: 100 }} />
         </View>
       </ScrollView>
+
+      {/* Invite Modal */}
+      <Modal visible={inviteModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Invite User</Text>
+            <Text style={styles.modalSubtitle}>
+              Search for users by name or email to invite them to this trip
+            </Text>
+            <View style={styles.searchContainer}>
+              <UserSearch
+                onSelectUser={handleInviteUser}
+                placeholder="Search users by name or email..."
+              />
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={() => setInviteModalVisible(false)}
+                disabled={isLoading}
+              >
+                <Text style={styles.buttonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            {isLoading && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Sending invitation...</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Fixed Bottom Button */}
       <View style={styles.bottomBar}>
@@ -895,6 +1013,49 @@ const styles = StyleSheet.create({
   participantName: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
+    color: colors.dark,
+  },
+
+  shareButtonText: {
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "90%",
+    backgroundColor: colors.cardBg,
+    borderRadius: 12,
+    padding: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.light,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalPrimary: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  modalButtonText: {
+    fontFamily: "Inter_600SemiBold",
     color: colors.dark,
   },
   bottomBar: {

@@ -13,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   Platform,
@@ -150,6 +151,8 @@ const Profile = () => {
   const [loadingBadges, setLoadingBadges] = useState(false);
   const [userTrips, setUserTrips] = useState<any[]>([]);
   const [loadingTrips, setLoadingTrips] = useState(false);
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
 
   useEffect(() => {
     const fetchUserTrips = async () => {
@@ -166,6 +169,24 @@ const Profile = () => {
       setLoadingTrips(false);
     };
     fetchUserTrips();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchInvitations = async () => {
+      const userId = (user as any)?.id || (user as any)?._id;
+      if (!userId) return;
+      setLoadingInvitations(true);
+      const res = await tripsAPI.getInvitationsForUser(userId);
+      if (res.success) {
+        const data = res.data?.trips || res.data;
+        setInvitations(Array.isArray(data) ? data : []);
+      } else {
+        setInvitations([]);
+      }
+      setLoadingInvitations(false);
+    };
+
+    fetchInvitations();
   }, [user]);
 
   useEffect(() => {
@@ -366,6 +387,94 @@ const Profile = () => {
         <View style={styles.tabContent}>
           {activeTab === "activities" ? (
             <View style={styles.activitiesList}>
+              {/* Invitations */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={styles.sectionTitle}>Invitations</Text>
+                {loadingInvitations ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : invitations && invitations.length > 0 ? (
+                  invitations.map((trip: any) => {
+                    const id = trip._id || trip.id;
+                    return (
+                      <View key={id} style={styles.inviteCard}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.activityType}>{trip.name}</Text>
+                          <Text style={styles.participantsText}>
+                            Invited by{" "}
+                            {trip.organizer?.username || trip.organizer?.name}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <TouchableOpacity
+                            style={styles.acceptButton}
+                            onPress={async () => {
+                              const userId =
+                                (user as any)?.id || (user as any)?._id;
+                              if (!userId) return;
+                              const res = await tripsAPI.acceptInvitation(
+                                id,
+                                userId
+                              );
+                              if (res.success) {
+                                // remove from invitations
+                                setInvitations((prev) =>
+                                  prev.filter((t) => (t._id || t.id) !== id)
+                                );
+                                // refresh user trips
+                                const tripsRes = await tripsAPI.getTripByUser(
+                                  userId
+                                );
+                                if (tripsRes.success)
+                                  setUserTrips(
+                                    tripsRes.data?.trips || tripsRes.data || []
+                                  );
+                                Alert.alert(
+                                  "Joined",
+                                  "You have joined the trip"
+                                );
+                              } else {
+                                Alert.alert(
+                                  "Error",
+                                  res.message || "Failed to accept invitation"
+                                );
+                              }
+                            }}
+                          >
+                            <Text style={styles.acceptButtonText}>Accept</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.rejectButton}
+                            onPress={async () => {
+                              const userId =
+                                (user as any)?.id || (user as any)?._id;
+                              if (!userId) return;
+                              const res = await tripsAPI.rejectInvitation(
+                                id,
+                                userId
+                              );
+                              if (res.success) {
+                                setInvitations((prev) =>
+                                  prev.filter((t) => (t._id || t.id) !== id)
+                                );
+                                Alert.alert("Declined", "Invitation rejected");
+                              } else {
+                                Alert.alert(
+                                  "Error",
+                                  res.message || "Failed to reject invitation"
+                                );
+                              }
+                            }}
+                          >
+                            <Text style={styles.rejectButtonText}>Reject</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })
+                ) : (
+                  <Text style={{ color: colors.gray }}>No invitations</Text>
+                )}
+              </View>
               {loadingTrips ? (
                 <ActivityIndicator size="large" color={colors.primary} />
               ) : userTrips.length > 0 ? (
@@ -913,6 +1022,38 @@ const styles = StyleSheet.create({
     color: colors.gray,
     marginTop: 6,
     marginBottom: 8,
+  },
+  inviteCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.cardBg,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  acceptButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  acceptButtonText: {
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
+  },
+  rejectButton: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  rejectButtonText: {
+    color: colors.dark,
+    fontFamily: "Inter_600SemiBold",
   },
   achievementsGrid: {
     flexDirection: "row",

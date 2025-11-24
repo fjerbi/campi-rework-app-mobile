@@ -131,6 +131,47 @@ export const tripsAPI = {
       return { success: false, message: axiosError.response?.data?.message || "Failed to fetch trip" };
     }
   },
+
+  // Invitation related APIs
+  inviteUser: async (tripId: string, userId: string, invitedBy: string) => {
+    try {
+      const res = await api.post(`/trips/${tripId}/invite`, { userId, invitedBy });
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to invite user" };
+    }
+  },
+
+  getInvitationsForUser: async (userId: string) => {
+    try {
+      const res = await api.get(`/trips/invitations/${userId}`);
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to fetch invitations" };
+    }
+  },
+
+  acceptInvitation: async (tripId: string, userId: string) => {
+    try {
+      const res = await api.post(`/trips/${tripId}/accept`, { userId });
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to accept invitation" };
+    }
+  },
+
+  rejectInvitation: async (tripId: string, userId: string) => {
+    try {
+      const res = await api.post(`/trips/${tripId}/reject`, { userId });
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to reject invitation" };
+    }
+  },
 };
 
 export const badgesAPI = {
