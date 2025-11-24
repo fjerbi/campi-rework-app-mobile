@@ -3,7 +3,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -42,11 +42,82 @@ export default function ActivityDetail() {
   const params = useLocalSearchParams();
   const [isJoined, setIsJoined] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [fullTrip, setFullTrip] = useState<any>(null);
 
   // Parse the activity data from params
   const activity = params.activity
     ? JSON.parse(params.activity as string)
     : null;
+
+  // Fetch full trip on mount so we have up-to-date participants and organizer info
+  useEffect(() => {
+    const id = activity?._id || activity?.id;
+    if (!id) return;
+
+    let mounted = true;
+    (async () => {
+      const res = await tripsAPI.getTripById(id);
+      if (mounted && res.success && res.data) {
+        setFullTrip(res.data);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activity]);
+
+  // Prepare display data and derived values before any early returns so hooks
+  // are always invoked in the same order.
+  const display = fullTrip ?? activity;
+
+  // Participants array (could be array of user objects or ids)
+  const participantsRaw = useMemo(
+    () => (Array.isArray(display?.participants) ? display.participants : []),
+    [display?.participants]
+  );
+
+  const participantsNum = participantsRaw.length;
+  const maxParticipantsNum = Number(display?.maxParticipants || 0);
+  const spotsLeft = Math.max(0, maxParticipantsNum - participantsNum);
+
+  // Gear items: prefer authoritative `display.gearChecklist` (array or CSV string),
+  // otherwise fall back to mock `activityDetails.equipment`.
+  const gearItems: string[] = (() => {
+    const raw =
+      (display as any)?.gearChecklist ?? (activity as any)?.gearChecklist;
+
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((s) => String(s).trim()).filter((s) => s.length > 0);
+    }
+
+    if (typeof raw === "string" && raw.trim().length > 0) {
+      return raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    }
+
+    return [];
+  })();
+
+  // Initialize isJoined when activity or fullTrip changes
+  useEffect(() => {
+    const user = useAuthStore.getState().user;
+    if (!user) {
+      setIsJoined(false);
+      return;
+    }
+
+    const userId = user.id;
+    const joined = participantsRaw.some((p: any) => {
+      if (!p) return false;
+      if (typeof p === "string") return p === userId;
+      return p._id === userId || p.id === userId || p.userId === userId;
+    });
+
+    setIsJoined(Boolean(joined));
+  }, [participantsRaw, fullTrip, activity]);
 
   if (!activity) {
     return (
@@ -55,8 +126,6 @@ export default function ActivityDetail() {
       </View>
     );
   }
-
-  const spotsLeft = activity.maxParticipants - activity.participants;
 
   const handleJoinActivity = async () => {
     try {
@@ -73,7 +142,10 @@ export default function ActivityDetail() {
 
       // If already joined, leave the trip
       if (isJoined) {
-        const response = await tripsAPI.leaveTrip(activity._id, user.id);
+        const response = await tripsAPI.leaveTrip(
+          display._id || display.id,
+          user.id
+        );
 
         if (!response.success) {
           Alert.alert("Error", response.message || "Failed to leave trip");
@@ -82,10 +154,16 @@ export default function ActivityDetail() {
         }
 
         Alert.alert("Success", "You have left the trip");
+        // Update local trip with server response when available
+        const updatedLeft = response?.data?.trip || response?.data || null;
+        if (updatedLeft) setFullTrip(updatedLeft);
         setIsJoined(false);
       } else {
         // Join the trip
-        const response = await tripsAPI.joinTrip(activity._id, user.id);
+        const response = await tripsAPI.joinTrip(
+          display._id || display.id,
+          user.id
+        );
 
         if (!response.success) {
           Alert.alert("Error", response.message || "Failed to join trip");
@@ -94,6 +172,9 @@ export default function ActivityDetail() {
         }
 
         Alert.alert("Success", "You have successfully joined the trip!");
+        // Update local trip data with whatever server returned
+        const updatedTrip = response?.data?.trip || response?.data || null;
+        if (updatedTrip) setFullTrip(updatedTrip);
         setIsJoined(true);
       }
 
@@ -104,6 +185,8 @@ export default function ActivityDetail() {
       setIsLoading(false);
     }
   };
+
+  // Fetch full trip on mount so we have up-to-date participants and organizer info
 
   // Mock additional data - Camping theme
   const activityDetails = {
@@ -342,23 +425,27 @@ export default function ActivityDetail() {
           {/* Equipment */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Gear checklist</Text>
-            {activityDetails.equipment.map((item, index) => (
-              <View key={index} style={styles.equipmentItem}>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color={colors.success}
-                />
-                <Text style={styles.equipmentText}>{item}</Text>
-              </View>
-            ))}
+            {gearItems.length > 0 ? (
+              gearItems.map((item, index) => (
+                <View key={index} style={styles.equipmentItem}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={colors.success}
+                  />
+                  <Text style={styles.equipmentText}>{item}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.equipmentText}>No equipment listed.</Text>
+            )}
           </View>
 
           {/* Participants */}
           <View style={styles.section}>
             <View style={styles.participantsHeader}>
               <Text style={styles.sectionTitle}>
-                Campers ({activity.participants}/{activity.maxParticipants})
+                Campers ({participantsNum}/{maxParticipantsNum})
               </Text>
               {spotsLeft > 0 && (
                 <View style={styles.spotsLeftBadge}>
@@ -369,15 +456,39 @@ export default function ActivityDetail() {
               )}
             </View>
             <View style={styles.participantsList}>
-              {activityDetails.attendees.map((attendee, index) => (
-                <View key={index} style={styles.participantItem}>
-                  <Image
-                    source={{ uri: attendee.avatar }}
-                    style={styles.participantAvatar}
-                  />
-                  <Text style={styles.participantName}>{attendee.name}</Text>
-                </View>
-              ))}
+              {participantsRaw.length > 0 ? (
+                participantsRaw.map((p: any, index: number) => {
+                  const isString = typeof p === "string";
+                  const name = isString
+                    ? "Participant"
+                    : p.name ||
+                      p.username ||
+                      `${p.first_name || ""} ${p.last_name || ""}`.trim() ||
+                      "Participant";
+                  const avatar = isString
+                    ? `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        name
+                      )}&background=2D5016&color=fff`
+                    : p.avatar ||
+                      p.picture ||
+                      p.profilePicture ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        name
+                      )}&background=2D5016&color=fff`;
+
+                  return (
+                    <View key={index} style={styles.participantItem}>
+                      <Image
+                        source={{ uri: avatar }}
+                        style={styles.participantAvatar}
+                      />
+                      <Text style={styles.participantName}>{name}</Text>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={styles.equipmentText}>No participants yet.</Text>
+              )}
             </View>
           </View>
 

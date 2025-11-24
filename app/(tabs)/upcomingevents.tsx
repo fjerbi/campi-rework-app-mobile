@@ -21,13 +21,9 @@ import {
 } from "react-native";
 import { Calendar, DateObject } from "react-native-calendars";
 
-// window width not required here
-
-// Camping color palette
 const colors = {
   primary: "#2D5016",
   primaryDark: "#1F3A0F",
-  secondary: "#8B7355",
   accent: "#D4772C",
   success: "#4A7C2C",
   warning: "#E89B3C",
@@ -50,21 +46,48 @@ const mapTripToEvent = (trip: any) => {
   const title = trip.name || trip.title || "Untitled Trip";
   const description = trip.description || trip.summary || "";
   const time = trip.time || trip.startTime || "09:00 AM";
-  const location =
-    trip.location || trip.campingSite?.location || trip.campingSite?.name || "";
-  const participants = Array.isArray(trip.participants)
-    ? trip.participants.length
-    : trip.participants || 0;
-  const maxParticipants = trip.maxParticipants || trip.capacity || 30;
+  // normalize location: allow string or object
+  let location = "";
+  if (typeof trip.location === "string") location = trip.location;
+  else if (trip.location && typeof trip.location === "object")
+    location = trip.location.name || trip.location.address || "";
+  else if (trip.campingSite)
+    location = trip.campingSite.location || trip.campingSite.name || "";
+
+  // normalize participants to a number
+  let participants = 0;
+  if (Array.isArray(trip.participants)) participants = trip.participants.length;
+  else if (typeof trip.participants === "number")
+    participants = trip.participants;
+  else if (typeof trip.participants === "string")
+    participants = parseInt(trip.participants, 10) || 0;
+
+  // normalize maxParticipants
+  let maxParticipants = 30;
+  if (trip.maxParticipants)
+    maxParticipants = parseInt(String(trip.maxParticipants), 10) || 30;
+  else if (trip.capacity)
+    maxParticipants = parseInt(String(trip.capacity), 10) || 30;
+
+  // helper to build display name
+  const getDisplayName = (u: any) => {
+    if (!u) return null;
+    if (u.name) return u.name;
+    const first = u.first_name || u.firstName || u.firstname || "";
+    const last = u.last_name || u.lastName || u.lastname || "";
+    const username = u.username || u.userName || u.handle || "";
+    const composed = `${first} ${last}`.trim();
+    return composed || username || null;
+  };
+
   const organizerName =
-    trip.organizer?.name ||
-    trip.owner?.username ||
-    trip.owner?.first_name ||
-    "Organizer";
+    getDisplayName(trip.organizer) || getDisplayName(trip.owner) || "Organizer";
   const organizerAvatar =
     trip.organizer?.avatar ||
+    trip.organizer?.picture ||
     trip.owner?.picture ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(organizerName)}`;
+    trip.owner?.avatar ||
+    null;
 
   return {
     id: trip._id || trip.id,
@@ -262,8 +285,10 @@ const UpcomingEvents = () => {
 
 // Event Card Component
 const EventCard = ({ event, isFirst }: any) => {
-  const isFull = event.participants >= event.maxParticipants;
-  const spotsLeft = event.maxParticipants - event.participants;
+  const participants = Number(event.participants) || 0;
+  const maxParticipants = Number(event.maxParticipants) || 0;
+  const isFull = maxParticipants > 0 ? participants >= maxParticipants : false;
+  const spotsLeft = Math.max(0, maxParticipants - participants);
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -277,33 +302,56 @@ const EventCard = ({ event, isFirst }: any) => {
         return colors.gray;
     }
   };
-
   return (
     <TouchableOpacity
       style={[styles.eventCard, isFirst && styles.eventCardFirst]}
       activeOpacity={0.9}
     >
-      {/* Event Image */}
-      <View style={styles.eventImageContainer}>
-        <Image source={{ uri: event.image }} style={styles.eventImage} />
-        <LinearGradient
-          colors={["transparent", "rgba(26,40,16,0.8)"]}
-          style={styles.imageGradient}
-        />
-
-        {/* Category Badge */}
-        <View style={styles.categoryBadge}>
-          <Text style={styles.categoryText}>{event.category}</Text>
-        </View>
-
-        {/* Difficulty Badge */}
+      {/* Simple header: category/difficulty as small badges */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
         <View
-          style={[
-            styles.difficultyBadge,
-            { backgroundColor: getDifficultyColor(event.difficulty) },
-          ]}
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
         >
-          <Text style={styles.difficultyText}>{event.difficulty}</Text>
+          <View
+            style={{
+              backgroundColor: colors.accent,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 8,
+            }}
+          >
+            <Text
+              style={{
+                color: "#fff",
+                fontFamily: "Inter_700Bold",
+                fontSize: 12,
+              }}
+            >
+              {event.category}
+            </Text>
+          </View>
+          <View
+            style={{
+              backgroundColor: getDifficultyColor(event.difficulty),
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 8,
+            }}
+          >
+            <Text
+              style={{
+                color: "#fff",
+                fontFamily: "Inter_700Bold",
+                fontSize: 12,
+              }}
+            >
+              {event.difficulty}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -350,7 +398,13 @@ const EventCard = ({ event, isFirst }: any) => {
         {/* Organizer */}
         <View style={styles.organizerRow}>
           <Image
-            source={{ uri: event.organizer.avatar }}
+            source={{
+              uri:
+                event.organizer?.avatar ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                  event.organizer?.name || "Organizer"
+                )}`,
+            }}
             style={styles.organizerAvatar}
           />
           <View style={styles.organizerInfo}>

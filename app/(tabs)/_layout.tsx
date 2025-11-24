@@ -1,13 +1,20 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Platform } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 
 import { HapticTab } from "@/components/haptic-tab";
-import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 // Icons
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+
+// Camping color palette
+const colors = {
+  primary: "#2E8B57",
+  white: "#FFFFFF",
+  darkGray: "#333333",
+  light: "#F8FAFC",
+};
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -15,31 +22,35 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#2E8B57",
-        tabBarInactiveTintColor: Colors.darkGray,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.darkGray,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarStyle: {
-          backgroundColor: Colors.white,
+          backgroundColor: colors.white,
           borderTopWidth: 0,
-          elevation: 20,
+          elevation: 25,
           shadowColor: "#000",
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-          height: Platform.OS === "ios" ? 88 : 65,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
-          paddingTop: 8,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
+          shadowOffset: { width: 0, height: -6 },
+          shadowOpacity: 0.15,
+          shadowRadius: 16,
+          height: Platform.OS === "ios" ? 90 : 70,
+          paddingBottom: Platform.OS === "ios" ? 28 : 12,
+          paddingTop: 12,
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          paddingHorizontal: 8,
         },
         tabBarLabelStyle: {
           fontFamily: "Inter_600SemiBold",
-          fontSize: 11,
+          fontSize: 10,
           marginTop: 4,
         },
         tabBarItemStyle: {
-          paddingVertical: 4,
+          paddingVertical: 6,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
         },
       }}
     >
@@ -48,25 +59,56 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "home" : "home-outline"}
-              size={focused ? 30 : 26}
-              color={color}
-            />
+            <View
+              style={[
+                styles.iconContainer,
+                focused && styles.iconContainerActive,
+              ]}
+            >
+              <Ionicons
+                name={focused ? "home" : "home-outline"}
+                size={24}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
 
       <Tabs.Screen
-        name="discover"
+        name="campings"
         options={{
-          title: "Discover",
+          title: "Sites",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "compass" : "compass-outline"}
-              size={focused ? 30 : 26}
-              color={color}
-            />
+            <View
+              style={[
+                styles.iconContainer,
+                focused && styles.iconContainerActive,
+              ]}
+            >
+              <MaterialCommunityIcons name="tent" size={24} color={color} />
+            </View>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="upcomingevents"
+        options={{
+          title: "Events",
+          tabBarIcon: ({ color, focused }) => (
+            <View
+              style={[
+                styles.iconContainer,
+                focused && styles.iconContainerActive,
+              ]}
+            >
+              <Ionicons
+                name={focused ? "calendar" : "calendar-outline"}
+                size={24}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
@@ -75,26 +117,16 @@ export default function TabLayout() {
         name="add"
         options={{
           title: "",
-          tabBarIcon: () => (
-            <Ionicons name="add-circle" size={32} color={Colors.forestGreen} />
+          tabBarIcon: ({ focused }) => (
+            <View style={styles.fabContainer}>
+              <View style={styles.fabShadow}>
+                <Ionicons name="add-circle" size={56} color={colors.primary} />
+              </View>
+            </View>
           ),
           tabBarItemStyle: {
-            marginTop: -8,
+            marginTop: -20,
           },
-        }}
-      />
-
-      <Tabs.Screen
-        name="campings"
-        options={{
-          title: "Campings",
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons
-              name="tent"
-              size={focused ? 30 : 26}
-              color={color}
-            />
-          ),
         }}
       />
 
@@ -103,53 +135,98 @@ export default function TabLayout() {
         options={{
           title: "Gear",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "settings" : "settings-outline"}
-              size={focused ? 30 : 26}
-              color={color}
-            />
+            <View
+              style={[
+                styles.iconContainer,
+                focused && styles.iconContainerActive,
+              ]}
+            >
+              <Ionicons
+                name={focused ? "settings" : "settings-outline"}
+                size={24}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
-      <Tabs.Screen
-        name="upcomingevents"
-        options={{
-          title: "Upcoming",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "calendar" : "calendar-outline"}
-              size={focused ? 30 : 26}
-              color={color}
-            />
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="sharedexperience"
         options={{
-          title: "Experience",
+          title: "Share",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "share-social" : "share-social-outline"}
-              size={focused ? 30 : 26}
-              color={color}
-            />
+            <View
+              style={[
+                styles.iconContainer,
+                focused && styles.iconContainerActive,
+              ]}
+            >
+              <Ionicons
+                name={focused ? "share-social" : "share-social-outline"}
+                size={24}
+                color={color}
+              />
+            </View>
           ),
         }}
       />
+
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "person-circle" : "person-circle-outline"}
-              size={focused ? 30 : 26}
-              color={color}
-            />
+            <View
+              style={[
+                styles.iconContainer,
+                focused && styles.iconContainerActive,
+              ]}
+            >
+              <Ionicons
+                name={focused ? "person-circle" : "person-circle-outline"}
+                size={24}
+                color={color}
+              />
+            </View>
           ),
+        }}
+      />
+
+      {/* Hidden tabs - removing from bottom nav */}
+      <Tabs.Screen
+        name="discover"
+        options={{
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+  },
+  iconContainerActive: {
+    backgroundColor: colors.primary + "15",
+  },
+  fabContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fabShadow: {
+    backgroundColor: colors.white,
+    borderRadius: 28,
+    elevation: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+});

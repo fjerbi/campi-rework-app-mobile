@@ -54,6 +54,8 @@ interface CampingData {
   meetingPoint: string;
   description: string;
   terrain: string;
+  maxParticipants?: string;
+  trailDistance?: string;
   gearChecklist: string;
   campingSiteObject?: (typeof campingSites)[0] | null;
 }
@@ -83,7 +85,9 @@ export default function CreateCampingModal({
     equipment: "",
     meetingPoint: "",
     description: "",
-    terrain: "Mountain",
+    terrain: "",
+    maxParticipants: "",
+    trailDistance: "",
     gearChecklist: "",
     campingSiteObject: null,
   });
@@ -155,12 +159,19 @@ export default function CreateCampingModal({
               .filter((p: string) => p)
           : [],
         campingData,
+        // Explicit terrain field to avoid it being missed/overwritten server-side
+        terrain: campingData.terrain || "",
         activities,
         description:
           campingData.description || `New camping trip at ${campingData.name}`,
       };
 
       console.log("Submitting trip:", payload);
+      // Debug: show the selected terrain value to help track the reported issue
+      console.log(
+        "Selected terrain (campingData.terrain):",
+        campingData.terrain
+      );
 
       // Make POST request to create trip
       const response = await tripsAPI.createTrip(payload);
@@ -185,7 +196,9 @@ export default function CreateCampingModal({
               equipment: "",
               meetingPoint: "",
               description: "",
-              terrain: "Mountain",
+              terrain: "",
+              maxParticipants: "",
+              trailDistance: "",
               gearChecklist: "",
               campingSiteObject: null,
             });
@@ -380,9 +393,23 @@ export default function CreateCampingModal({
                   placeholder="e.g., 10"
                   placeholderTextColor={colors.grayLight}
                   keyboardType="numeric"
-                  value={campingData.participants}
+                  value={String(campingData.maxParticipants ?? "")}
                   onChangeText={(text) =>
-                    setCampingData({ ...campingData, participants: text })
+                    setCampingData({ ...campingData, maxParticipants: text })
+                  }
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Trail Distance (km)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., 12"
+                  placeholderTextColor={colors.grayLight}
+                  keyboardType="numeric"
+                  value={String(campingData.trailDistance ?? "")}
+                  onChangeText={(text) =>
+                    setCampingData({ ...campingData, trailDistance: text })
                   }
                 />
               </View>

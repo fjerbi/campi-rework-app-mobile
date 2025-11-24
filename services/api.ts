@@ -3,7 +3,7 @@ import { useAuthStore } from "@/stores/authStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios, { AxiosError } from "axios";
 
-export const API_URL = "https://2392d0fd91ae.ngrok-free.app";
+export const API_URL = "https://477c70e74fd5.ngrok-free.app";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -129,6 +129,18 @@ export const tripsAPI = {
       const axiosError = err as AxiosError<{ message: string }>;
       console.error("getTripById error:", axiosError.response?.data);
       return { success: false, message: axiosError.response?.data?.message || "Failed to fetch trip" };
+    }
+  },
+};
+
+export const badgesAPI = {
+  getBadgesByUser: async (userId: string) => {
+    try {
+      const res = await api.get(`/badges/user/${userId}`);
+      return { success: true, data: res.data };
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      return { success: false, message: axiosError.response?.data?.message || "Failed to fetch badges" };
     }
   },
 };

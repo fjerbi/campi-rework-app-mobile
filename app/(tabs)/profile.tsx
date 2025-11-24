@@ -1,4 +1,4 @@
-import { tripsAPI } from "@/services/api";
+import { badgesAPI, tripsAPI } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import {
   Inter_400Regular,
@@ -142,10 +142,12 @@ const Profile = () => {
     Inter_800ExtraBold,
   });
 
-  const [activeTab, setActiveTab] = useState<"activities" | "achievements">(
+  const [activeTab, setActiveTab] = useState<"activities" | "badges">(
     "activities"
   );
   const user = useAuthStore((state) => state.user);
+  const [badges, setBadges] = useState<any[]>([]);
+  const [loadingBadges, setLoadingBadges] = useState(false);
   const [userTrips, setUserTrips] = useState<any[]>([]);
   const [loadingTrips, setLoadingTrips] = useState(false);
 
@@ -164,6 +166,23 @@ const Profile = () => {
       setLoadingTrips(false);
     };
     fetchUserTrips();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchBadges = async () => {
+      const userId = (user as any)?.id || (user as any)?._id;
+      if (!userId) return;
+      setLoadingBadges(true);
+      const res = await badgesAPI.getBadgesByUser(userId);
+      if (res.success) {
+        const data = res.data?.badges || res.data;
+        setBadges(Array.isArray(data) ? data : []);
+      } else {
+        setBadges([]);
+      }
+      setLoadingBadges(false);
+    };
+    fetchBadges();
   }, [user]);
 
   if (!fontsLoaded) return null;
@@ -322,11 +341,8 @@ const Profile = () => {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === "achievements" && styles.tabActive,
-            ]}
-            onPress={() => setActiveTab("achievements")}
+            style={[styles.tab, activeTab === "badges" && styles.tabActive]}
+            onPress={() => setActiveTab("badges")}
           >
             <Ionicons
               name="trophy"
@@ -461,28 +477,77 @@ const Profile = () => {
             </View>
           ) : (
             <View style={styles.achievementsGrid}>
-              {userData.achievements.map((achievement) => (
-                <View key={achievement.id} style={styles.achievementCard}>
-                  <View
-                    style={[
-                      styles.achievementIcon,
-                      { backgroundColor: achievement.color + "20" },
-                    ]}
-                  >
-                    <Ionicons
-                      name={achievement.icon as any}
-                      size={32}
-                      color={achievement.color}
-                    />
+              {loadingBadges ? (
+                <ActivityIndicator size="large" color={colors.primary} />
+              ) : badges && badges.length > 0 ? (
+                badges.map((b: any) => {
+                  const id = b._id || b.id;
+                  const title =
+                    b.name || b.title || (b.badge && b.badge.name) || "Badge";
+                  const description =
+                    b.description ||
+                    (b.badge && b.badge.description) ||
+                    "Earned achievement";
+                  const earnedAt = b.createdAt || b.earnedAt || null;
+                  const type = b.type || (b.badge && b.badge.type) || "default";
+                  const color =
+                    type === "gold"
+                      ? colors.warning
+                      : type === "silver"
+                      ? colors.gray
+                      : type === "bronze"
+                      ? colors.accent
+                      : colors.primary;
+
+                  return (
+                    <View key={id} style={styles.achievementCard}>
+                      <View
+                        style={[
+                          styles.achievementIcon,
+                          { backgroundColor: color + "20" },
+                        ]}
+                      >
+                        <Ionicons
+                          name={"trophy" as any}
+                          size={32}
+                          color={color}
+                        />
+                      </View>
+                      <Text style={styles.achievementTitle}>{title}</Text>
+                      <Text style={styles.achievementDescription}>
+                        {description}
+                        {earnedAt
+                          ? ` • ${new Date(earnedAt).toLocaleDateString()}`
+                          : ""}
+                      </Text>
+                    </View>
+                  );
+                })
+              ) : (
+                // fallback to mock achievements if no badges from backend
+                badges.map((achievement) => (
+                  <View key={achievement.id} style={styles.achievementCard}>
+                    <View
+                      style={[
+                        styles.achievementIcon,
+                        { backgroundColor: achievement.color + "20" },
+                      ]}
+                    >
+                      <Ionicons
+                        name={achievement.icon as any}
+                        size={32}
+                        color={achievement.color}
+                      />
+                    </View>
+                    <Text style={styles.achievementTitle}>
+                      {achievement.title}
+                    </Text>
+                    <Text style={styles.achievementDescription}>
+                      {achievement.description}
+                    </Text>
                   </View>
-                  <Text style={styles.achievementTitle}>
-                    {achievement.title}
-                  </Text>
-                  <Text style={styles.achievementDescription}>
-                    {achievement.description}
-                  </Text>
-                </View>
-              ))}
+                ))
+              )}
             </View>
           )}
         </View>

@@ -99,20 +99,49 @@ export default function Index() {
             image:
               trip.image ||
               "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=800&q=80",
-            activity: {
-              type: trip.terrainType || "Camping",
-              icon: "trail-sign",
-              distance: trip.trailDistance || "Unknown",
-              duration: duration,
-              elevation: "N/A",
-            },
+            activity: ((): any => {
+              const trailDistanceRaw =
+                trip.trailDistance !== undefined && trip.trailDistance !== null
+                  ? Number(trip.trailDistance)
+                  : null;
+
+              const distance =
+                trailDistanceRaw !== null && !Number.isNaN(trailDistanceRaw)
+                  ? `${trailDistanceRaw} km`
+                  : "Unknown";
+
+              return {
+                type: trip.terrainType || "Camping",
+                icon: "trail-sign",
+                distance,
+                duration: duration,
+                elevation: "N/A",
+              };
+            })(),
+            // Include gearChecklist so details screen can render gear list
+            gearChecklist: Array.isArray(trip.gearChecklist)
+              ? trip.gearChecklist
+              : typeof trip.gearChecklist === "string" &&
+                trip.gearChecklist.trim()
+              ? trip.gearChecklist
+                  .split(",")
+                  .map((s: string) => s.trim())
+                  .filter((s: string) => s)
+              : [],
             time: trip.timestamp
               ? new Date(trip.timestamp).toLocaleDateString()
               : "Recently",
             likes: trip.likes || 0,
             tags: trip.terrainType ? [trip.terrainType] : ["Camping"],
-            participants: trip.participants?.length || 0,
-            maxParticipants: trip.maxParticipants || 10,
+            // Normalize participants & maxParticipants to numbers
+            participants: Number(
+              trip.participantsCount ??
+                ((Array.isArray(trip.participants)
+                  ? trip.participants.length
+                  : trip.participants) ||
+                  0)
+            ),
+            maxParticipants: Number(trip.maxParticipants || 10),
           };
         });
         setFeed(mappedTrips);
@@ -148,10 +177,14 @@ export default function Index() {
   };
 
   const handleJoin = (id: string) => {
+    const item = feed.find((f) => f.id === id);
+    if (!item) return;
+
+    // Push to ActivityDetail and pass the whole item as a param (stringified)
     router.push({
-      pathname: "/trip/[id]",
+      pathname: "/ActivityDetail",
       params: {
-        id,
+        activity: JSON.stringify(item),
       },
     });
   };

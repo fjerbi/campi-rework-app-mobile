@@ -26,8 +26,12 @@ const colors = {
   border: "#D9E3CE",
 };
 export const FeedCard = ({ item, onLike, onJoin, isFirst }: any) => {
-  const isFull = item.participants >= item.maxParticipants;
-  const spotsLeft = item.maxParticipants - item.participants;
+  // Normalize numeric fields (API may return strings or undefined)
+  const participantsNum = Number(item.participants || 0);
+  const maxParticipantsNum = Number(item.maxParticipants || 0);
+  const isFull =
+    maxParticipantsNum > 0 && participantsNum >= maxParticipantsNum;
+  const spotsLeft = Math.max(0, maxParticipantsNum - participantsNum);
   return (
     <View style={[styles.card, isFirst && styles.cardFirst]}>
       {/* User Info */}
@@ -131,7 +135,7 @@ export const FeedCard = ({ item, onLike, onJoin, isFirst }: any) => {
               </View>
             </View>
             <Text style={styles.participantsText}>
-              {item.participants} campers
+              {participantsNum} campers
             </Text>
           </View>
           {!isFull && (
